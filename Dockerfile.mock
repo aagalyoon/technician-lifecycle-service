@@ -1,0 +1,11 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy root-level TS config and mock server files
+COPY mock-servicetitan/ ./
+RUN npm install
+
+EXPOSE 3001
+
+CMD ["npx", "ts-node", "server.ts"]

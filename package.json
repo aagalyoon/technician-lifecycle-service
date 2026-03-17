@@ -1,0 +1,44 @@
+{
+  "name": "technician-lifecycle-service",
+  "version": "1.0.0",
+  "description": "Technician Lifecycle Management Service for the platform",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "test": "jest --forceExit --detectOpenHandles",
+    "test:unit": "jest --testPathPattern=tests/unit --forceExit",
+    "test:integration": "jest --testPathPattern=tests/integration --forceExit --detectOpenHandles",
+    "migrate": "ts-node src/migrate.ts",
+    "seed": "ts-node src/seed.ts",
+    "lint": "eslint src/ tests/ --ext .ts"
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.1",
+    "express": "^4.18.2",
+    "node-cron": "^3.0.3",
+    "pg": "^8.11.3",
+    "pino": "^8.18.0",
+    "pino-pretty": "^10.3.1",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.11",
+    "@types/node": "^20.11.5",
+    "@types/node-cron": "^3.0.11",
+    "@types/pg": "^8.10.9",
+    "@types/uuid": "^9.0.7",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

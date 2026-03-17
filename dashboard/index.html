@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>the platform - Technician Lifecycle Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; }
+    .header { background: #1a1a2e; color: white; padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; }
+    .header h1 { font-size: 20px; font-weight: 600; }
+    .header .subtitle { color: #8b8fa3; font-size: 13px; }
+    .header button { background: #4361ee; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; }
+    .header button:hover { background: #3a56d4; }
+    .header button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .stat-card .label { font-size: 12px; text-transform: uppercase; color: #666; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .stat-card .value { font-size: 32px; font-weight: 700; }
+    .stat-card .value.warning { color: #e67e22; }
+    .stat-card .value.danger { color: #e74c3c; }
+    .stat-card .value.success { color: #27ae60; }
+    .section { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 24px; overflow: hidden; }
+    .section-header { padding: 16px 20px; border-bottom: 1px solid #eee; font-weight: 600; font-size: 15px; display: flex; align-items: center; justify-content: space-between; }
+    .section-header .badge { background: #e74c3c; color: white; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 10px 16px; font-size: 11px; text-transform: uppercase; color: #888; background: #fafbfc; letter-spacing: 0.5px; }
+    td { padding: 12px 16px; border-top: 1px solid #f0f0f0; font-size: 13px; }
+    tr:hover { background: #f9fafc; }
+    .status { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .status.completed { background: #d4edda; color: #155724; }
+    .status.running { background: #cce5ff; color: #004085; }
+    .status.failed { background: #f8d7da; color: #721c24; }
+    .status.pending { background: #fff3cd; color: #856404; }
+    .resolve-btn { background: #4361ee; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .resolve-btn:hover { background: #3a56d4; }
+    .empty { padding: 40px; text-align: center; color: #999; }
+    .toast { position: fixed; bottom: 20px; right: 20px; background: #333; color: white; padding: 12px 20px; border-radius: 6px; display: none; z-index: 1000; }
+    .toast.show { display: block; }
+    .company-row td:first-child { font-weight: 600; }
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+    .modal-overlay.show { display: flex; }
+    .modal { background: white; border-radius: 8px; padding: 24px; width: 480px; max-width: 90vw; }
+    .modal h3 { margin-bottom: 16px; }
+    .modal label { display: block; font-size: 13px; margin-bottom: 4px; color: #555; margin-top: 12px; }
+    .modal input, .modal textarea { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+    .modal textarea { height: 80px; resize: vertical; }
+    .modal .actions { margin-top: 20px; display: flex; gap: 8px; justify-content: flex-end; }
+    .modal .actions button { padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; font-size: 14px; }
+    .modal .cancel { background: #eee; }
+    .modal .submit { background: #4361ee; color: white; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>Technician Lifecycle Dashboard</h1>
+      <div class="subtitle">the platform Operations</div>
+    </div>
+    <button id="syncBtn" onclick="triggerSync()">Run Sync Now</button>
+  </div>
+
+  <div class="container">
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card"><div class="label">Pending Reviews</div><div class="value warning" id="pendingCount">-</div></div>
+      <div class="stat-card"><div class="label">Phone Conflicts (30d)</div><div class="value danger" id="conflictCount">-</div></div>
+      <div class="stat-card"><div class="label">Integrated Companies</div><div class="value" id="companyCount">-</div></div>
+      <div class="stat-card"><div class="label">Last Sync</div><div class="value" id="lastSync" style="font-size:16px">-</div></div>
+    </div>
+
+    <!-- Pending Reviews -->
+    <div class="section">
+      <div class="section-header">
+        Pending Reviews
+        <span class="badge" id="reviewBadge" style="display:none">0</span>
+      </div>
+      <div id="reviewsTable"></div>
+    </div>
+
+    <!-- Company Overview -->
+    <div class="section">
+      <div class="section-header">Company Technician Overview</div>
+      <div id="companiesTable"></div>
+    </div>
+
+    <!-- Recent Syncs -->
+    <div class="section">
+      <div class="section-header">Recent Sync Runs</div>
+      <div id="syncsTable"></div>
+    </div>
+  </div>
+
+  <!-- Resolution Modal -->
+  <div class="modal-overlay" id="resolveModal">
+    <div class="modal">
+      <h3>Resolve Review Item</h3>
+      <input type="hidden" id="resolveId">
+      <label>Resolution Notes</label>
+      <textarea id="resolveNotes" placeholder="Describe what action was taken and why..."></textarea>
+      <label>Your Name</label>
+      <input id="resolveBy" placeholder="e.g. Sarah Manager">
+      <div style="margin-top:12px">
+        <label><input type="checkbox" id="resolveRelease"> Release phone from current user</label><br>
+        <label><input type="checkbox" id="resolveDeactivate"> Deactivate the flagged user</label>
+      </div>
+      <div class="actions">
+        <button class="cancel" onclick="closeModal()">Cancel</button>
+        <button class="submit" onclick="submitResolve()">Submit Resolution</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const API = window.location.origin;
+
+    async function loadDashboard() {
+      try {
+        const [dashRes, reviewsRes] = await Promise.all([
+          fetch(`${API}/api/reviews/dashboard`),
+          fetch(`${API}/api/reviews`),
+        ]);
+        const dashboard = await dashRes.json();
+        const reviews = await reviewsRes.json();
+
+        // Stats
+        document.getElementById('pendingCount').textContent = dashboard.pendingReviews;
+        document.getElementById('conflictCount').textContent = dashboard.phoneConflictsLast30Days;
+        document.getElementById('companyCount').textContent = dashboard.companies?.length || 0;
+
+        if (dashboard.recentSyncs?.length > 0) {
+          const last = dashboard.recentSyncs[0];
+          document.getElementById('lastSync').textContent = new Date(last.started_at).toLocaleString();
+        }
+
+        // Reviews
+        renderReviews(reviews);
+
+        // Companies
+        renderCompanies(dashboard.companies || []);
+
+        // Syncs
+        renderSyncs(dashboard.recentSyncs || []);
+      } catch (err) {
+        console.error('Failed to load dashboard:', err);
+      }
+    }
+
+    function renderReviews(reviews) {
+      const el = document.getElementById('reviewsTable');
+      const badge = document.getElementById('reviewBadge');
+
+      if (reviews.length === 0) {
+        el.innerHTML = '<div class="empty">No items pending review</div>';
+        badge.style.display = 'none';
+        return;
+      }
+
+      badge.textContent = reviews.length;
+      badge.style.display = 'inline';
+
+      el.innerHTML = `<table>
+        <thead><tr><th>Technician</th><th>Company</th><th>Issue</th><th>Phone</th><th>Created</th><th></th></tr></thead>
+        <tbody>${reviews.map(r => `
+          <tr>
+            <td>${r.technician_name}</td>
+            <td>${r.company_name}</td>
+            <td style="max-width:300px;font-size:12px">${r.reason}</td>
+            <td>${r.phone_number || '-'}</td>
+            <td>${new Date(r.created_at).toLocaleDateString()}</td>
+            <td><button class="resolve-btn" onclick="openResolve('${r.id}')">Resolve</button></td>
+          </tr>
+        `).join('')}</tbody>
+      </table>`;
+    }
+
+    function renderCompanies(companies) {
+      const el = document.getElementById('companiesTable');
+      if (companies.length === 0) {
+        el.innerHTML = '<div class="empty">No integrated companies</div>';
+        return;
+      }
+      el.innerHTML = `<table>
+        <thead><tr><th>Company</th><th>Provider</th><th>Active Techs</th><th>Inactive Techs</th></tr></thead>
+        <tbody>${companies.map(c => `
+          <tr class="company-row">
+            <td>${c.name}</td>
+            <td>${c.pos_provider}</td>
+            <td>${c.active_techs}</td>
+            <td>${c.inactive_techs}</td>
+          </tr>
+        `).join('')}</tbody>
+      </table>`;
+    }
+
+    function renderSyncs(syncs) {
+      const el = document.getElementById('syncsTable');
+      if (syncs.length === 0) {
+        el.innerHTML = '<div class="empty">No sync runs yet. Click "Run Sync Now" to start.</div>';
+        return;
+      }
+      el.innerHTML = `<table>
+        <thead><tr><th>Time</th><th>Status</th><th>Processed</th><th>Changes</th><th>Applied</th><th>Flagged</th></tr></thead>
+        <tbody>${syncs.map(s => `
+          <tr>
+            <td>${new Date(s.started_at).toLocaleString()}</td>
+            <td><span class="status ${s.status}">${s.status}</span></td>
+            <td>${s.technicians_processed}</td>
+            <td>${s.changes_detected}</td>
+            <td>${s.changes_applied}</td>
+            <td>${s.flags_for_review > 0 ? '<strong style="color:#e74c3c">' + s.flags_for_review + '</strong>' : '0'}</td>
+          </tr>
+        `).join('')}</tbody>
+      </table>`;
+    }
+
+    async function triggerSync() {
+      const btn = document.getElementById('syncBtn');
+      btn.disabled = true;
+      btn.textContent = 'Syncing...';
+      try {
+        const res = await fetch(`${API}/api/sync`, { method: 'POST' });
+        const data = await res.json();
+        showToast(`Sync complete: ${data.results?.length || 0} companies processed`);
+        await loadDashboard();
+      } catch (err) {
+        showToast('Sync failed: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Run Sync Now';
+      }
+    }
+
+    function openResolve(id) {
+      document.getElementById('resolveId').value = id;
+      document.getElementById('resolveModal').classList.add('show');
+    }
+
+    function closeModal() {
+      document.getElementById('resolveModal').classList.remove('show');
+    }
+
+    async function submitResolve() {
+      const id = document.getElementById('resolveId').value;
+      const body = {
+        resolution: document.getElementById('resolveNotes').value,
+        reviewedBy: document.getElementById('resolveBy').value,
+        releasePhone: document.getElementById('resolveRelease').checked,
+        deactivateUser: document.getElementById('resolveDeactivate').checked ? undefined : undefined,
+      };
+
+      if (!body.resolution || !body.reviewedBy) {
+        showToast('Please fill in resolution notes and your name');
+        return;
+      }
+
+      try {
+        await fetch(`${API}/api/reviews/${id}/resolve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        closeModal();
+        showToast('Review resolved successfully');
+        await loadDashboard();
+      } catch (err) {
+        showToast('Failed to resolve: ' + err.message);
+      }
+    }
+
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 3000);
+    }
+
+    // Load on startup and refresh every 30 seconds
+    loadDashboard();
+    setInterval(loadDashboard, 30000);
+  </script>
+</body>
+</html>
